@@ -9,23 +9,36 @@
                5 0.25
                })
 
-(defn price-package [different-books]
-  (let [factor (- 1 (discount different-books))]
-    (* different-books unit-price factor)))
+(defn price-package [books]
+  (let [bookcount (count books),
+        factor (- 1 (discount bookcount))]
+    (* bookcount unit-price factor)))
 
-(defn add-book [packages book]
-  (if (empty? packages)
-    [#{book}] ; new package
-    (let [package (first packages)
-          others  (rest packages)]
-      (if (contains? package book)
-        (cons package (add-book others book)) ; add to others
-        (cons (conj package book) others))))) ; add to first package
+(defn price-packages [packages]
+  (reduce + (map price-package packages)))
 
-(defn packages [books]
-  (reduce add-book [] books))
+(defn all-selections
+  "All possible pairs of [chosen rest]"
+  [coll]
+  (map #(vector 
+          (nth coll %1) 
+          (concat (take %1 coll) (nthrest coll (inc %1))))
+       (range (count coll))))
 
-(defn price [books]
-  (reduce +
-          (map (comp price-package count)
-               (packages books))))
+(defn add-book
+  "Adds a book to a package in the cheapest way"
+  [packages book]
+  (let [new-package (conj packages #{book}),
+        elegible-selections (remove #(contains? (first %) book)
+                                    (all-selections packages)),
+        add-to-package (map
+                         (fn [[p ps]] (conj ps (conj p book))) 
+                         elegible-selections)
+        all-options (conj add-to-package new-package)]
+    (apply (partial min-key price-packages) all-options)))
+
+(defn price 
+  "Minimum possible price"
+  [books]
+  (let [packages (reduce add-book [] books)]
+    (price-packages packages)))
